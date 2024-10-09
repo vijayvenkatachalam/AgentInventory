@@ -1,6 +1,6 @@
 {
   "graphql_endpoint": "https://api.traceable.ai/graphql",
   "token": "",
-  "environment": "API-NONPROD",
+  "environment": "",
   "last_x_days": 7
 }
