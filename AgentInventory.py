@@ -17,13 +17,11 @@ logging.basicConfig(
     ]
 )
 
-
 # Function to calculate startTime and endTime for each day in the range
 def get_daily_time_range(day):
     start_time = day.replace(hour=0, minute=0, second=0, microsecond=0)
     end_time = start_time + datetime.timedelta(days=1)
     return start_time.isoformat() + 'Z', end_time.isoformat() + 'Z'
-
 
 # Function to run GraphQL query with pagination for each day
 def run_graphql_query_for_day(query_template, endpoint, headers, start_time, end_time, environment, limit=10000):
@@ -32,11 +30,10 @@ def run_graphql_query_for_day(query_template, endpoint, headers, start_time, end
     total_records = None
 
     while True:
-        query = query_template.format(start_time=start_time, end_time=end_time, environment=environment, limit=limit,
-                                      offset=offset)
+        query = query_template.format(start_time=start_time, end_time=end_time, environment=environment, limit=limit, offset=offset)
 
         if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
-            logging.debug(f"Running full query: {query[:1000]}...")  # Log full query when DEBUG is on
+            logging.debug(f"Running full query: {query[:1000]}...")
         else:
             logging.info(f"Running query for {start_time} to {end_time} with offset {offset} and limit {limit}")
 
@@ -44,25 +41,29 @@ def run_graphql_query_for_day(query_template, endpoint, headers, start_time, end
 
         if result_json is None:
             logging.error("No data returned from the query.")
-            break  # If no valid result, break out of the loop
+            break  # Exit if no valid result
 
+        # Handle different query structures
         if 'explore' in result_json['data']:
             current_results = result_json['data']['explore']['results']
             total_records = result_json['data']['explore'].get('total', None)
-        elif 'entities' in result_json['data']:  # Handling the "List of Services" query
+        elif 'entities' in result_json['data']:  # Handle List of Services query
             current_results = result_json['data']['entities']['results']
             total_records = result_json['data']['entities'].get('total', None)
         else:
             logging.error(f"Unexpected result structure: {result_json}")
-            break  # Invalid data format
+            break  # Exit if the structure is unexpected
 
         all_results.extend(current_results)
-        offset += limit
-
         logging.info(f"Fetched {len(current_results)} records, total so far: {len(all_results)}")
 
-        if total_records is None or offset >= total_records:
-            break
+        # Check if we've fetched all available records for the day
+        if len(current_results) < limit:
+            logging.info(f"Finished fetching all records for {start_time} to {end_time}.")
+            break  # Exit when fewer than `limit` records are returned
+
+        # Increment the offset to fetch the next page
+        offset += limit
 
     return all_results
 
@@ -81,13 +82,11 @@ def run_graphql_query(query, endpoint, headers):
         logging.error(f"Error running query: {e}")
         return None
 
-
 # Function to process query results and extract IPs or services
 def process_query_results(query_name, result_json):
     if result_json is None or 'data' not in result_json:
         logging.error(f"No valid data returned for {query_name}")
         return pd.DataFrame()  # Return an empty DataFrame
-
     try:
         if query_name == 'List of Services':
             # Extract fields for the services list
@@ -125,7 +124,6 @@ def process_query_results(query_name, result_json):
     except KeyError as e:
         logging.error(f"KeyError processing {query_name}: {e}")
         return pd.DataFrame()  # Return empty DataFrame if error occurs
-
 
 # Define the GraphQL query templates directly in the code
 query_templates = {
@@ -307,7 +305,6 @@ query_templates = {
     '''
 }
 
-
 # Main function to run all queries and write results to Excel files
 def main(config):
     endpoint = config['graphql_endpoint']
@@ -322,7 +319,7 @@ def main(config):
 
     # Create an Excel writer to write data into multiple sheets
     timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    filename = f'agent_inventory_report_{timestamp}.xlsx'
+    filename = f'agent_inventory_report_{environment}_{timestamp}.xlsx'
     with pd.ExcelWriter(filename, engine='xlsxwriter') as writer:
         # Write the Inventory Description tab
         inventory_description = pd.DataFrame({
